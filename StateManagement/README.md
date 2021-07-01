@@ -1,27 +1,105 @@
-# StateManagement
+# State Management Workshop
+### Slide 8 - Subjects
+https://rxjs-dev.firebaseapp.com/guide/subject
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 12.0.5.
+https://angular.io/guide/component-interaction
 
-## Development server
+### Slide 12
+models/value-pair.model.ts
+```
+export class ValuePair {
+  private _previousValue: number;
+  private _value: number;
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.
+  constructor() {
+    this._previousValue = 0;
+    this._value = 0;
+  }
 
-## Code scaffolding
+  public set value(value: number) {
+    this._previousValue = this._value;
+    this._value = value;
+  }
+  public get value(): number {
+    return this._value;
+  }
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+  public get previousValue(): number {
+    return this._previousValue;
+  }
+}
+```
+### Slide 13
+services/counter-state.service.ts
+```
+import { Injectable } from '@angular/core';
+import { BehaviorSubject } from 'rxjs';
+import { ValuePair } from '../models/value-pair.model';
 
-## Build
+@Injectable({
+  providedIn: 'root',
+})
+export class CounterStateService {
+  private valuePair = new ValuePair();
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
+  public valueChanged = new BehaviorSubject<ValuePair>(this.valuePair);
 
-## Running unit tests
+  constructor() {
+    console.log('CounterStateService.ctor');
+  }
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+  public incrementValue(offsetValue: number) {
+    console.log('CounterStateService.incrementValue');
+    this.valuePair.value = this.valuePair.value + offsetValue;
+    this.valueChanged.next(this.valuePair);
+  }
+}
+```
+### Slide 14
+components/left-side/counter-action/counter-action.component.ts
+```
+export class CounterActionComponent implements OnInit {
+  constructor(private counterSvc: CounterStateService) { }
+```
+```
+  public buttonClicked(value: number) {
+    this.counterSvc.incrementValue(value);
+  }
+```
+### Slide 15
+components/right-side/counter-result/counter-result.component.ts
+```
+  public value: number;
+  constructor(private counterSvc: CounterStateService) {
+    this.counterSvc.valueChanged.subscribe(data => {
+      this.value = data.newValue;
+    });
+  }
+```
+### Slide 16
+components/routable-parent.component.ts
+```
+  constructor(private counterSvc: CounterStateService) {
+    this.counterSvc.valueChanged.subscribe(data => {
+      this.updateMessage(data);
+    });
+  }
+```
+```
+  private updateMessage(data: ValuePair) {
+    this.actionDetected = `Value Change Detected -- Old Value: ${data.oldValue}, New Value ${data.newValue}`;
+  }
+```
 
-## Running end-to-end tests
 
-Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
-
-## Further help
-
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.io/cli) page.
+### Slide 17
+components/routable-parent.component.ts
+```
+export class RoutableParentComponent implements OnInit, OnDestroy {
+  public actionDetected: string;
+```
+```
+  ngOnDestroy(): void {
+    this.counterSvc.valueChanged.complete();
+  }
+```
